@@ -90,6 +90,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isUploading = false;
   bool _isProfileUploading = false;
   String? _photoURL;
+  String? _licenseUploadErrorMessage;
 
   final List<String> specialtiesList = [
     'القلب',
@@ -236,6 +237,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     }
 
+    _licenseUploadErrorMessage = null;
     setState(() => _isGoogleLoading = true);
 
     try {
@@ -275,6 +277,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
           googleUser.email,
           licenseDocumentUrl: uploadedLicenseDocumentUrl,
         );
+
+        if (_selectedAccountType == 'doctor' &&
+            uploadedLicenseDocumentUrl == null &&
+            _licenseUploadErrorMessage != null &&
+            mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_licenseUploadErrorMessage!)),
+          );
+        }
 
         if (mounted) {
           Navigator.pushNamedAndRemoveUntil(
@@ -372,9 +383,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             : 'خطأ في حفظ البيانات: ${error.toString()}';
         break;
       case 'storage-error':
-        errorMessage = error is FirebaseException
-            ? 'خطأ في رفع الملف: ${error.message ?? error.code}'
-            : 'خطأ في رفع الملف: ${error.toString()}';
+        errorMessage = 'خطأ في رفع الملف: ${_storageErrorMessage(error)}';
         break;
       case 'profile-upload-error':
         errorMessage = 'خطأ في رفع الصورة الشخصية: ${error.toString()}';
@@ -482,13 +491,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       return downloadUrl;
     } catch (e) {
+      _licenseUploadErrorMessage = _storageErrorMessage(e);
       _handleError('storage-error', e);
-      rethrow;
+      return null;
     } finally {
       if (mounted) {
         setState(() => _isUploading = false);
       }
     }
+  }
+
+  String _storageErrorMessage(dynamic error) {
+    final message = error.toString();
+    if (message.contains('HttpResult: 402') ||
+        message.contains('Spark pricing plan') ||
+        message.contains('no longer supports Firebase projects')) {
+      return 'تعذر رفع وثيقة الترخيص لأن Firebase Storage غير متاح على خطة Spark الحالية. قم بترقية مشروع Firebase إلى Blaze أو غيّر قواعد التخزين/المشروع ثم أعد رفع الوثيقة.';
+    }
+
+    if (error is FirebaseException) {
+      return error.message ?? error.code;
+    }
+
+    return message;
   }
 
   Reference _doctorStorageRef({
@@ -597,6 +622,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'workplaces': workplaces,
           'clinicName': _workplaces.isNotEmpty ? _workplaces.first.name : '',
           'hasLicenseDocuments': licenseDocumentUrl != null && licenseDocumentUrl.isNotEmpty,
+          'licenseUploadStatus': licenseDocumentUrl != null && licenseDocumentUrl.isNotEmpty ? 'uploaded' : 'upload_failed',
+          'licenseUploadError': _licenseUploadErrorMessage ?? '',
           'verificationStatus': 'pending',
           'accountStatus': 'Pending',
           'doctorRequestStatus': 'pending',
@@ -629,6 +656,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'photoURL': _photoURL ?? '',
           'documentUrls': licenseDocumentUrl == null ? <String>[] : <String>[licenseDocumentUrl],
           'hasLicenseDocuments': licenseDocumentUrl != null && licenseDocumentUrl.isNotEmpty,
+          'licenseUploadStatus': licenseDocumentUrl != null && licenseDocumentUrl.isNotEmpty ? 'uploaded' : 'upload_failed',
+          'licenseUploadError': _licenseUploadErrorMessage ?? '',
           'status': 'pending',
           'verificationStatus': 'pending',
           'doctorRequestStatus': 'pending',
@@ -779,6 +808,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     }
 
+    _licenseUploadErrorMessage = null;
     setState(() => _isLoading = true);
 
     try {
@@ -807,6 +837,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _emailController.text.trim(),
         licenseDocumentUrl: uploadedLicenseDocumentUrl,
       );
+
+      if (_selectedAccountType == 'doctor' &&
+          uploadedLicenseDocumentUrl == null &&
+          _licenseUploadErrorMessage != null &&
+          mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_licenseUploadErrorMessage!)),
+        );
+      }
 
       if (!mounted) return;
 

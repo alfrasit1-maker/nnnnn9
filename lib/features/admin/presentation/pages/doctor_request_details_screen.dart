@@ -104,8 +104,10 @@ class _DoctorRequestDetailsScreenState extends State<DoctorRequestDetailsScreen>
                     .asMap()
                     .entries
                     .map((entry) => _buildDocumentItem('وثيقة إضافية ${entry.key + 1}', entry.value)),
-                if (_request.medicalLicense.isEmpty && _request.medicalDegree.isEmpty && _request.documentUrls.isEmpty)
-                  Text('لا توجد روابط وثائق محفوظة لهذا الطلب.', style: TextStyle(color: Colors.grey.shade700)),
+                if (_request.medicalLicense.isEmpty && _request.licenseDocumentName.isNotEmpty)
+                  _buildUploadWarning(),
+                if (_request.medicalLicense.isEmpty && _request.medicalDegree.isEmpty && _request.documentUrls.isEmpty && _request.licenseDocumentName.isEmpty)
+                  Text('لا توجد روابط وثائق محفوظة لهذا الطلب.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
               ],
             ),
             const SizedBox(height: 16),
@@ -212,6 +214,48 @@ class _DoctorRequestDetailsScreenState extends State<DoctorRequestDetailsScreen>
             ...children,
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildUploadWarning() {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.errorContainer.withOpacity(0.45),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.error.withOpacity(0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.cloud_off_rounded, color: colorScheme.error),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'تم اختيار وثيقة الإثبات: ${_request.licenseDocumentName}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _request.licenseUploadError.isNotEmpty
+                      ? _request.licenseUploadError
+                      : 'تعذر رفع الوثيقة إلى Firebase Storage. يرجى مراجعة إعدادات التخزين ثم طلب إعادة رفع الوثيقة.',
+                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
