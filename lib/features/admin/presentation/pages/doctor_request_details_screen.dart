@@ -34,7 +34,7 @@ class _DoctorRequestDetailsScreenState extends State<DoctorRequestDetailsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F7FF),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: const Text('تفاصيل طلب الطبيب'),
         backgroundColor: const Color(0xFF3A86FF),
@@ -88,8 +88,14 @@ class _DoctorRequestDetailsScreenState extends State<DoctorRequestDetailsScreen>
               title: 'الوثائق والإثباتات',
               icon: Icons.description_rounded,
               children: [
-                if (_request.medicalLicense.isNotEmpty)
+                if (_request.medicalLicense.isNotEmpty) ...[
+                  if (_isImageUrl(_request.medicalLicense)) ...[
+                    _buildSectionLabel('معاينة صورة إثبات المهنة'),
+                    _buildImagePreview('وثيقة إثبات المهنة', _request.medicalLicense),
+                    const SizedBox(height: 10),
+                  ],
                   _buildDocumentItem('وثيقة إثبات المهنة', _request.medicalLicense),
+                ],
                 if (_request.medicalDegree.isNotEmpty && _looksLikeUrl(_request.medicalDegree))
                   _buildDocumentItem('شهادة التخرج', _request.medicalDegree),
                 ..._request.documentUrls
@@ -98,8 +104,10 @@ class _DoctorRequestDetailsScreenState extends State<DoctorRequestDetailsScreen>
                     .asMap()
                     .entries
                     .map((entry) => _buildDocumentItem('وثيقة إضافية ${entry.key + 1}', entry.value)),
-                if (_request.medicalLicense.isEmpty && _request.medicalDegree.isEmpty && _request.documentUrls.isEmpty)
-                  Text('لا توجد روابط وثائق محفوظة لهذا الطلب.', style: TextStyle(color: Colors.grey.shade700)),
+                if (_request.medicalLicense.isEmpty && _request.licenseDocumentName.isNotEmpty)
+                  _buildUploadWarning(),
+                if (_request.medicalLicense.isEmpty && _request.medicalDegree.isEmpty && _request.documentUrls.isEmpty && _request.licenseDocumentName.isEmpty)
+                  Text('لا توجد روابط وثائق محفوظة لهذا الطلب.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
               ],
             ),
             const SizedBox(height: 16),
@@ -167,9 +175,15 @@ class _DoctorRequestDetailsScreenState extends State<DoctorRequestDetailsScreen>
   }
 
   Widget _buildInfoCard({required String title, required IconData icon, required List<Widget> children}) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Card(
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: colorScheme.surfaceVariant.withOpacity(0.55),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.7)),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -180,13 +194,20 @@ class _DoctorRequestDetailsScreenState extends State<DoctorRequestDetailsScreen>
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEAF1FF),
+                    color: colorScheme.primaryContainer.withOpacity(0.65),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(icon, color: const Color(0xFF3A86FF), size: 20),
+                  child: Icon(icon, color: colorScheme.primary, size: 20),
                 ),
                 const SizedBox(width: 8),
-                Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -197,33 +218,86 @@ class _DoctorRequestDetailsScreenState extends State<DoctorRequestDetailsScreen>
     );
   }
 
-  Widget _buildDocumentItem(String title, String url) {
-    final isImage = _isImageUrl(url);
+  Widget _buildUploadWarning() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7FAFF),
+        color: colorScheme.errorContainer.withOpacity(0.45),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFDBE6FF)),
+        border: Border.all(color: colorScheme.error.withOpacity(0.35)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(isImage ? Icons.image_rounded : Icons.insert_drive_file_rounded, color: const Color(0xFF3A86FF)),
+          Icon(Icons.cloud_off_rounded, color: colorScheme.error),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(
+                  'تم اختيار وثيقة الإثبات: ${_request.licenseDocumentName}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _request.licenseUploadError.isNotEmpty
+                      ? _request.licenseUploadError
+                      : 'تعذر رفع الوثيقة إلى Firebase Storage. يرجى مراجعة إعدادات التخزين ثم طلب إعادة رفع الوثيقة.',
+                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDocumentItem(String title, String url) {
+    final isImage = _isImageUrl(url);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Icon(isImage ? Icons.image_rounded : Icons.insert_drive_file_rounded, color: colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
                 const SizedBox(height: 3),
-                Text('تم الرفع وجاهز للمراجعة', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                Text(
+                  'تم الرفع وجاهز للمراجعة',
+                  style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+                ),
               ],
             ),
           ),
           IconButton(
             tooltip: 'فتح بالحجم الكامل',
-            icon: const Icon(Icons.open_in_new_rounded, color: Color(0xFF3A86FF)),
+            icon: Icon(Icons.open_in_new_rounded, color: colorScheme.primary),
             onPressed: () => _openAttachment(title, url),
           ),
         ],
@@ -232,6 +306,8 @@ class _DoctorRequestDetailsScreenState extends State<DoctorRequestDetailsScreen>
   }
 
   Widget _buildImagePreview(String title, String url) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: () => _openAttachment(title, url),
@@ -243,11 +319,27 @@ class _DoctorRequestDetailsScreenState extends State<DoctorRequestDetailsScreen>
             url,
             fit: BoxFit.cover,
             errorBuilder: (_, __, ___) => Container(
-              color: const Color(0xFFEAF1FF),
+              color: colorScheme.primaryContainer.withOpacity(0.45),
               alignment: Alignment.center,
-              child: const Text('تعذر تحميل الصورة الشخصية'),
+              child: Text(
+                'تعذر تحميل الصورة',
+                style: TextStyle(color: colorScheme.onPrimaryContainer),
+              ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontWeight: FontWeight.w700,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
     );
@@ -315,23 +407,38 @@ class _DoctorRequestDetailsScreenState extends State<DoctorRequestDetailsScreen>
   }
 
   Widget _buildInfoRow(String label, String value) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FBFF),
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.7)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             flex: 1,
-            child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.grey)),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
           ),
           Expanded(
             flex: 2,
-            child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+            child: Text(
+              value.isEmpty ? 'غير محدد' : value,
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                color: colorScheme.onSurface,
+              ),
+            ),
           ),
         ],
       ),
@@ -387,7 +494,7 @@ class _DoctorRequestDetailsScreenState extends State<DoctorRequestDetailsScreen>
 
   Widget _buildReviewInfo() {
     return Card(
-      color: const Color(0xFFEFF5FF),
+      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.55),
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(

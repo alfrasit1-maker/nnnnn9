@@ -48,16 +48,14 @@ class CallMessageNotificationService {
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
     FirebaseMessaging.onMessageOpenedApp.listen(_handleBackgroundMessage);
 
-    // الحصول على token
-    final token = await _firebaseMessaging.getToken();
+    // الحصول على token بدون إيقاف تشغيل التطبيق إذا كانت خدمة FCM غير متاحة مؤقتاً.
     try {
-      await _firebaseMessaging.getToken();
+      final token = await _firebaseMessaging.getToken();
+      if (token != null) {
+        await _saveDeviceToken(token);
+      }
     } catch (e) {
-      print("Error getting FCM token: $e");
-    }
-
-    if (token != null) {
-      await _saveDeviceToken(token);
+      print('تعذر الحصول على FCM token حالياً وسيستمر تشغيل التطبيق: $e');
     }
   }
 
@@ -151,10 +149,12 @@ class CallMessageNotificationService {
   Future<void> _saveDeviceToken(String token) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      await _firestore.collection('users').doc(user.uid).update({
+      await _firestore.collection('users').doc(user.uid).set({
+        'uid': user.uid,
+        'email': user.email,
         'fcmToken': token,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
     }
   }
 

@@ -11,6 +11,11 @@ import '../../../../core/config/theme_helper.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 
+const bool _firebaseStorageUploadsEnabled = bool.fromEnvironment(
+  'ENABLE_FIREBASE_STORAGE_UPLOADS',
+  defaultValue: true,
+);
+
 class Workplace {
   final String name;
   final Map<String, List<WorkTime>> workDays;
@@ -90,6 +95,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isUploading = false;
   bool _isProfileUploading = false;
   String? _photoURL;
+  String? _licenseUploadErrorMessage;
 
   final List<String> specialtiesList = [
     'القلب',
@@ -176,6 +182,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<String?> _uploadProfileImage(String userId) async {
     if (_profileImage == null) return null;
 
+    if (!_firebaseStorageUploadsEnabled) {
+      debugPrint('تم تخطي رفع الصورة الشخصية لأن Firebase Storage uploads معطلة في هذا البناء.');
+      return null;
+    }
+
     if (!mounted) return null;
     setState(() => _isProfileUploading = true);
 
@@ -220,6 +231,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _registerWithGoogle() async {
     if (!mounted) return;
 
+    if (_selectedAccountType == 'doctor') {
+      if (_licenseDocument == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('يجب تحميل وثيقة الترخيص للأطباء')),
+        );
+        return;
+      }
+
+      if (_workplaces.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('يجب إضافة مكان عمل واحد على الأقل')),
+        );
+        return;
+      }
+    }
+
+    _licenseUploadErrorMessage = null;
     setState(() => _isGoogleLoading = true);
 
     try {
@@ -241,11 +269,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
       await FirebaseAuth.instance.signInWithCredential(credential);
 
       if (userCredential.user != null) {
+        if (_profileImage != null) {
+          final uploadedPhotoUrl = await _uploadProfileImage(userCredential.user!.uid);
+          if (uploadedPhotoUrl != null) {
+            _photoURL = uploadedPhotoUrl;
+          }
+        }
+
+        final uploadedLicenseDocumentUrl =
+            _selectedAccountType == 'doctor'
+                ? await _uploadLicenseDocument(userCredential.user!.uid)
+                : null;
+
         await _saveUserDataToFirestore(
           userCredential.user!.uid,
           googleUser.displayName ?? 'مستخدم جديد',
           googleUser.email,
+          licenseDocumentUrl: uploadedLicenseDocumentUrl,
         );
+
+        if (_selectedAccountType == 'doctor' &&
+            uploadedLicenseDocumentUrl == null &&
+            _licenseUploadErrorMessage != null &&
+            mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_licenseUploadErrorMessage!)),
+          );
+        }
 
         if (mounted) {
           Navigator.pushNamedAndRemoveUntil(
@@ -330,6 +380,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     String errorMessage = 'حدث خطأ أثناء التسجيل';
     switch (errorType) {
       case 'google-auth-error':
+      case 'auth-error':
       case 'apple-firebase-error':
         errorMessage = _getFirebaseErrorText(error as FirebaseAuthException);
         break;
@@ -342,9 +393,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             : 'خطأ في حفظ البيانات: ${error.toString()}';
         break;
       case 'storage-error':
-        errorMessage = error is FirebaseException
-            ? 'خطأ في رفع الملف: ${error.message ?? error.code}'
-            : 'خطأ في رفع الملف: ${error.toString()}';
+        errorMessage = 'خطأ في رفع الملف: ${_storageErrorMessage(error)}';
         break;
       case 'profile-upload-error':
         errorMessage = 'خطأ في رفع الصورة الشخصية: ${error.toString()}';
@@ -428,6 +477,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<String?> _uploadLicenseDocument(String userId) async {
     if (_licenseDocument == null) return null;
 
+    if (!_firebaseStorageUploadsEnabled) {
+      _licenseUploadErrorMessage =
+          'تم اختيار وثيقة الترخيص، لكن رفع الملفات إلى Firebase Storage معطل في هذا البناء. شغّل التطبيق بدون تعطيل الرفع أو استخدم --dart-define=ENABLE_FIREBASE_STORAGE_UPLOADS=true حتى يتم رفع الوثيقة وحفظ رابطها للأدمن.';
+      return null;
+    }
+
     if (mounted) setState(() => _isUploading = true);
 
     try {
@@ -452,13 +507,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       return downloadUrl;
     } catch (e) {
+      _licenseUploadErrorMessage = _storageErrorMessage(e);
       _handleError('storage-error', e);
-      rethrow;
+      return null;
     } finally {
       if (mounted) {
         setState(() => _isUploading = false);
       }
     }
+  }
+
+  String _storageErrorMessage(dynamic error) {
+    final message = error.toString();
+    if (message.contains('HttpResult: 402') ||
+        message.contains('Spark pricing plan') ||
+        message.contains('no longer supports Firebase projects')) {
+      return 'تعذر رفع وثيقة الترخيص لأن Firebase Storage غير متاح على خطة Spark الحالية. قم بترقية مشروع Firebase إلى Blaze أو غيّر قواعد التخزين/المشروع ثم أعد رفع الوثيقة.';
+    }
+
+    if (error is FirebaseException) {
+      return error.message ?? error.code;
+    }
+
+    return message;
   }
 
   Reference _doctorStorageRef({
@@ -567,6 +638,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'workplaces': workplaces,
           'clinicName': _workplaces.isNotEmpty ? _workplaces.first.name : '',
           'hasLicenseDocuments': licenseDocumentUrl != null && licenseDocumentUrl.isNotEmpty,
+          'licenseUploadStatus': licenseDocumentUrl != null && licenseDocumentUrl.isNotEmpty ? 'uploaded' : 'upload_failed',
+          'licenseUploadError': _licenseUploadErrorMessage ?? '',
           'verificationStatus': 'pending',
           'accountStatus': 'Pending',
           'doctorRequestStatus': 'pending',
@@ -590,6 +663,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'medicalDegree': qualification,
           'medicalLicense': licenseDocumentUrl ?? '',
           'licenseDocumentUrl': licenseDocumentUrl ?? '',
+          'licenseDocument': _licenseDocument?.name ?? '',
           'licenseNumber': licenseNumber,
           'clinicName': _workplaces.isNotEmpty ? _workplaces.first.name : '',
           'clinicAddress': '',
@@ -597,6 +671,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'profileImageUrl': _photoURL ?? '',
           'photoURL': _photoURL ?? '',
           'documentUrls': licenseDocumentUrl == null ? <String>[] : <String>[licenseDocumentUrl],
+          'hasLicenseDocuments': licenseDocumentUrl != null && licenseDocumentUrl.isNotEmpty,
+          'licenseUploadStatus': licenseDocumentUrl != null && licenseDocumentUrl.isNotEmpty ? 'uploaded' : 'upload_failed',
+          'licenseUploadError': _licenseUploadErrorMessage ?? '',
           'status': 'pending',
           'verificationStatus': 'pending',
           'doctorRequestStatus': 'pending',
@@ -728,15 +805,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     if (_selectedAccountType == 'doctor') {
-      if (_profileImage == null && (_photoURL == null || _photoURL!.isEmpty)) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('يجب إضافة صورة شخصية للأطباء')),
-          );
-        }
-        return;
-      }
-
       if (_licenseDocument == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -756,6 +824,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     }
 
+    _licenseUploadErrorMessage = null;
     setState(() => _isLoading = true);
 
     try {
@@ -765,13 +834,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: _passwordController.text.trim(),
       );
 
-      String? licenseDocumentUrl;
-      if (_selectedAccountType == 'doctor' && _licenseDocument != null) {
-        licenseDocumentUrl = await _uploadLicenseDocument(userCredential.user!.uid);
+      if (_profileImage != null) {
+        final uploadedPhotoUrl = await _uploadProfileImage(userCredential.user!.uid);
+        if (uploadedPhotoUrl != null) {
+          _photoURL = uploadedPhotoUrl;
+        }
       }
 
       final uploadedLicenseDocumentUrl =
-      _selectedAccountType == 'doctor' && _licenseDocument != null
+      _selectedAccountType == 'doctor'
           ? await _uploadLicenseDocument(userCredential.user!.uid)
           : null;
       await _saveDataLocally();
@@ -783,12 +854,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         licenseDocumentUrl: uploadedLicenseDocumentUrl,
       );
 
-      if (_profileImage != null) {
-        final uploadedPhotoUrl = await _uploadProfileImage(userCredential.user!.uid);
-        if (uploadedPhotoUrl != null) {
-          _photoURL = uploadedPhotoUrl;
-          await _saveProfileImageUrl(userCredential.user!.uid, uploadedPhotoUrl);
-        }
+      if (_selectedAccountType == 'doctor' &&
+          uploadedLicenseDocumentUrl == null &&
+          _licenseUploadErrorMessage != null &&
+          mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_licenseUploadErrorMessage!)),
+        );
       }
 
       if (!mounted) return;
