@@ -16,7 +16,7 @@ class _DoctorRequestsScreenState extends State<DoctorRequestsScreen> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFFF3F7FF),
+      color: Theme.of(context).colorScheme.surface,
       child: Column(
         children: [
           _buildFilterBar(),
@@ -72,15 +72,17 @@ class _DoctorRequestsScreenState extends State<DoctorRequestsScreen> {
   }
 
   Widget _buildFilterBar() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 10, 12, 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surfaceVariant.withOpacity(0.65),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: colorScheme.shadow.withOpacity(0.06),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -105,8 +107,10 @@ class _DoctorRequestsScreenState extends State<DoctorRequestsScreen> {
 
   Widget _buildFilterButton(String label, String value, IconData icon) {
     final isSelected = _selectedFilter == value;
+    final colorScheme = Theme.of(context).colorScheme;
+
     return FilterChip(
-      avatar: Icon(icon, size: 16, color: isSelected ? Colors.white : const Color(0xFF3A86FF)),
+      avatar: Icon(icon, size: 16, color: isSelected ? colorScheme.onPrimary : colorScheme.primary),
       label: Text(label),
       selected: isSelected,
       onSelected: (_) {
@@ -115,28 +119,27 @@ class _DoctorRequestsScreenState extends State<DoctorRequestsScreen> {
 
         });
       },
-      backgroundColor: Colors.white,
-      selectedColor: const Color(0xFF3A86FF),
-      checkmarkColor: Colors.white,
+      backgroundColor: colorScheme.surface,
+      selectedColor: colorScheme.primary,
+      checkmarkColor: colorScheme.onPrimary,
       labelStyle: TextStyle(
-        color: isSelected ? Colors.white : const Color(0xFF294060),
+        color: isSelected ? colorScheme.onPrimary : colorScheme.onSurface,
         fontWeight: FontWeight.w600,
       ),
       side: BorderSide(
-        color: isSelected ? const Color(0xFF3A86FF) : const Color(0xFFD8E3F5),
+        color: isSelected ? colorScheme.primary : colorScheme.outlineVariant,
       ),
     );
   }
 
   Widget _buildRequestCard(DoctorRequest request) {
     final statusMeta = _statusMeta(request.status);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Colors.white, Color(0xFFFDFEFF)],
-        ),
+        color: colorScheme.surfaceVariant.withOpacity(0.55),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -179,10 +182,17 @@ class _DoctorRequestsScreenState extends State<DoctorRequestsScreen> {
                   children: [
                     Text(
                       request.fullName,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: colorScheme.onSurface,
+                      ),
                     ),
                     const SizedBox(height: 4),
-                    Text(request.specialty, style: TextStyle(color: Colors.grey.shade700, fontSize: 13.5)),
+                    Text(
+                      request.specialty.isEmpty ? 'تخصص غير محدد' : request.specialty,
+                      style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13.5),
+                    ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -202,12 +212,12 @@ class _DoctorRequestsScreenState extends State<DoctorRequestsScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Icon(Icons.schedule_rounded, size: 14, color: Colors.grey.shade500),
+                        Icon(Icons.schedule_rounded, size: 14, color: colorScheme.onSurfaceVariant),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             _formatDate(request.createdAt),
-                            style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -216,7 +226,7 @@ class _DoctorRequestsScreenState extends State<DoctorRequestsScreen> {
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF3A86FF)),
+              Icon(Icons.arrow_forward_ios_rounded, size: 16, color: colorScheme.primary),
             ],
           ),
         ),
@@ -231,9 +241,9 @@ class _DoctorRequestsScreenState extends State<DoctorRequestsScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 26),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.65),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFDCE6F8)),
+            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -242,13 +252,17 @@ class _DoctorRequestsScreenState extends State<DoctorRequestsScreen> {
               const SizedBox(height: 14),
               Text(
                 'لا توجد طلبات ${_getFilterLabel()}',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 6),
               Text(
                 'سيتم عرض الطلبات هنا فور وصولها.',
-                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ],
           ),
