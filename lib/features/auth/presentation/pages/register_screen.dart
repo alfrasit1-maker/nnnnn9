@@ -11,6 +11,11 @@ import '../../../../core/config/theme_helper.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 
+const bool _firebaseStorageUploadsEnabled = bool.fromEnvironment(
+  'ENABLE_FIREBASE_STORAGE_UPLOADS',
+  defaultValue: false,
+);
+
 class Workplace {
   final String name;
   final Map<String, List<WorkTime>> workDays;
@@ -176,6 +181,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<String?> _uploadProfileImage(String userId) async {
     if (_profileImage == null) return null;
+
+    if (!_firebaseStorageUploadsEnabled) {
+      debugPrint('تم تخطي رفع الصورة الشخصية لأن Firebase Storage uploads معطلة في هذا البناء.');
+      return null;
+    }
 
     if (!mounted) return null;
     setState(() => _isProfileUploading = true);
@@ -466,6 +476,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<String?> _uploadLicenseDocument(String userId) async {
     if (_licenseDocument == null) return null;
+
+    if (!_firebaseStorageUploadsEnabled) {
+      _licenseUploadErrorMessage =
+          'تم اختيار وثيقة الترخيص، لكن رفع الملفات إلى Firebase Storage معطل حالياً لتجنب خطأ خطة Spark المجانية. سيتم إرسال الطلب للأدمن بدون رابط مرفق إلى أن يتم تفعيل Storage/Blaze ثم إعادة رفع الوثيقة.';
+      return null;
+    }
 
     if (mounted) setState(() => _isUploading = true);
 
