@@ -211,6 +211,7 @@ class MyApp extends StatelessWidget {
             '/appointments': (_) => AppointmentsListScreen(),
             '/book_appointment': (_) => const BookAppointmentScreen(),
             '/doctorDashboard': (_) => const DoctorDashboardScreen(),
+            '/doctor_dashboard': (_) => const DoctorDashboardScreen(),
             '/profill': (_) => const ProfileScreen(),
             '/health_questions': (_) => const HealthQuestionsScreen(),
             '/admin': (_) => const AdminAuthGate(),

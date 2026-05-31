@@ -13,7 +13,7 @@ import 'package:flutter/foundation.dart';
 
 const bool _firebaseStorageUploadsEnabled = bool.fromEnvironment(
   'ENABLE_FIREBASE_STORAGE_UPLOADS',
-  defaultValue: false,
+  defaultValue: true,
 );
 
 class Workplace {
@@ -479,7 +479,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (!_firebaseStorageUploadsEnabled) {
       _licenseUploadErrorMessage =
-          'تم اختيار وثيقة الترخيص، لكن رفع الملفات إلى Firebase Storage معطل حالياً لتجنب خطأ خطة Spark المجانية. سيتم إرسال الطلب للأدمن بدون رابط مرفق إلى أن يتم تفعيل Storage/Blaze ثم إعادة رفع الوثيقة.';
+          'تم اختيار وثيقة الترخيص، لكن رفع الملفات إلى Firebase Storage معطل في هذا البناء. شغّل التطبيق بدون تعطيل الرفع أو استخدم --dart-define=ENABLE_FIREBASE_STORAGE_UPLOADS=true حتى يتم رفع الوثيقة وحفظ رابطها للأدمن.';
       return null;
     }
 
