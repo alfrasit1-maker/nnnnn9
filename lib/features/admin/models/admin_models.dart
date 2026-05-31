@@ -69,6 +69,9 @@ class DoctorRequest {
   final String phoneNumber;
   final String specialty;
   final String medicalLicense; // رابط الملف
+  final String licenseDocumentName; // اسم ملف الإثبات
+  final String licenseUploadStatus;
+  final String licenseUploadError;
   final String medicalDegree; // شهادة التخرج
   final String profileImageUrl; // الصورة الشخصية
   final String clinicName;
@@ -93,6 +96,9 @@ class DoctorRequest {
     required this.phoneNumber,
     required this.specialty,
     required this.medicalLicense,
+    required this.licenseDocumentName,
+    required this.licenseUploadStatus,
+    required this.licenseUploadError,
     required this.medicalDegree,
     required this.profileImageUrl,
     required this.clinicName,
@@ -134,6 +140,9 @@ class DoctorRequest {
       phoneNumber: data['phoneNumber'] ?? data['phone'] ?? '',
       specialty: data['specialty'] ?? data['specialtyName'] ?? '',
       medicalLicense: data['medicalLicense'] ?? data['licenseDocumentUrl'] ?? '',
+      licenseDocumentName: data['licenseDocument'] ?? '',
+      licenseUploadStatus: data['licenseUploadStatus'] ?? '',
+      licenseUploadError: data['licenseUploadError'] ?? '',
       medicalDegree: data['medicalDegree'] ?? data['qualification'] ?? '',
       profileImageUrl: data['profileImageUrl'] ?? data['photoURL'] ?? '',
       clinicName: data['clinicName'] ?? '',
@@ -163,6 +172,9 @@ class DoctorRequest {
       'specialty': specialty,
       'medicalLicense': medicalLicense,
       'licenseDocumentUrl': medicalLicense,
+      'licenseDocument': licenseDocumentName,
+      'licenseUploadStatus': licenseUploadStatus,
+      'licenseUploadError': licenseUploadError,
       'medicalDegree': medicalDegree,
       'profileImageUrl': profileImageUrl,
       'clinicName': clinicName,
@@ -189,6 +201,9 @@ class DoctorRequest {
     String? phoneNumber,
     String? specialty,
     String? medicalLicense,
+    String? licenseDocumentName,
+    String? licenseUploadStatus,
+    String? licenseUploadError,
     String? medicalDegree,
     String? profileImageUrl,
     String? clinicName,
@@ -213,6 +228,9 @@ class DoctorRequest {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       specialty: specialty ?? this.specialty,
       medicalLicense: medicalLicense ?? this.medicalLicense,
+      licenseDocumentName: licenseDocumentName ?? this.licenseDocumentName,
+      licenseUploadStatus: licenseUploadStatus ?? this.licenseUploadStatus,
+      licenseUploadError: licenseUploadError ?? this.licenseUploadError,
       medicalDegree: medicalDegree ?? this.medicalDegree,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       clinicName: clinicName ?? this.clinicName,
