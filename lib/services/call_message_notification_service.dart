@@ -151,10 +151,12 @@ class CallMessageNotificationService {
   Future<void> _saveDeviceToken(String token) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      await _firestore.collection('users').doc(user.uid).update({
+      await _firestore.collection('users').doc(user.uid).set({
+        'uid': user.uid,
+        'email': user.email,
         'fcmToken': token,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
     }
   }
 
