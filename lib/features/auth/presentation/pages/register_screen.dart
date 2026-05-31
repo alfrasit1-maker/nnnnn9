@@ -220,6 +220,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _registerWithGoogle() async {
     if (!mounted) return;
 
+    if (_selectedAccountType == 'doctor') {
+      if (_licenseDocument == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('يجب تحميل وثيقة الترخيص للأطباء')),
+        );
+        return;
+      }
+
+      if (_workplaces.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('يجب إضافة مكان عمل واحد على الأقل')),
+        );
+        return;
+      }
+    }
+
     setState(() => _isGoogleLoading = true);
 
     try {
@@ -241,10 +257,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
       await FirebaseAuth.instance.signInWithCredential(credential);
 
       if (userCredential.user != null) {
+        if (_profileImage != null) {
+          final uploadedPhotoUrl = await _uploadProfileImage(userCredential.user!.uid);
+          if (uploadedPhotoUrl != null) {
+            _photoURL = uploadedPhotoUrl;
+          }
+        }
+
+        final uploadedLicenseDocumentUrl =
+            _selectedAccountType == 'doctor'
+                ? await _uploadLicenseDocument(userCredential.user!.uid)
+                : null;
+
         await _saveUserDataToFirestore(
           userCredential.user!.uid,
           googleUser.displayName ?? 'مستخدم جديد',
           googleUser.email,
+          licenseDocumentUrl: uploadedLicenseDocumentUrl,
         );
 
         if (mounted) {
@@ -330,6 +359,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     String errorMessage = 'حدث خطأ أثناء التسجيل';
     switch (errorType) {
       case 'google-auth-error':
+      case 'auth-error':
       case 'apple-firebase-error':
         errorMessage = _getFirebaseErrorText(error as FirebaseAuthException);
         break;
@@ -590,6 +620,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'medicalDegree': qualification,
           'medicalLicense': licenseDocumentUrl ?? '',
           'licenseDocumentUrl': licenseDocumentUrl ?? '',
+          'licenseDocument': _licenseDocument?.name ?? '',
           'licenseNumber': licenseNumber,
           'clinicName': _workplaces.isNotEmpty ? _workplaces.first.name : '',
           'clinicAddress': '',
@@ -597,6 +628,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'profileImageUrl': _photoURL ?? '',
           'photoURL': _photoURL ?? '',
           'documentUrls': licenseDocumentUrl == null ? <String>[] : <String>[licenseDocumentUrl],
+          'hasLicenseDocuments': licenseDocumentUrl != null && licenseDocumentUrl.isNotEmpty,
           'status': 'pending',
           'verificationStatus': 'pending',
           'doctorRequestStatus': 'pending',
@@ -728,15 +760,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     if (_selectedAccountType == 'doctor') {
-      if (_profileImage == null && (_photoURL == null || _photoURL!.isEmpty)) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('يجب إضافة صورة شخصية للأطباء')),
-          );
-        }
-        return;
-      }
-
       if (_licenseDocument == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -765,13 +788,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: _passwordController.text.trim(),
       );
 
-      String? licenseDocumentUrl;
-      if (_selectedAccountType == 'doctor' && _licenseDocument != null) {
-        licenseDocumentUrl = await _uploadLicenseDocument(userCredential.user!.uid);
+      if (_profileImage != null) {
+        final uploadedPhotoUrl = await _uploadProfileImage(userCredential.user!.uid);
+        if (uploadedPhotoUrl != null) {
+          _photoURL = uploadedPhotoUrl;
+        }
       }
 
       final uploadedLicenseDocumentUrl =
-      _selectedAccountType == 'doctor' && _licenseDocument != null
+      _selectedAccountType == 'doctor'
           ? await _uploadLicenseDocument(userCredential.user!.uid)
           : null;
       await _saveDataLocally();
@@ -782,14 +807,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _emailController.text.trim(),
         licenseDocumentUrl: uploadedLicenseDocumentUrl,
       );
-
-      if (_profileImage != null) {
-        final uploadedPhotoUrl = await _uploadProfileImage(userCredential.user!.uid);
-        if (uploadedPhotoUrl != null) {
-          _photoURL = uploadedPhotoUrl;
-          await _saveProfileImageUrl(userCredential.user!.uid, uploadedPhotoUrl);
-        }
-      }
 
       if (!mounted) return;
 
